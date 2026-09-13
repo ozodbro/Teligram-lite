@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Chat</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { display: flex; height: 100vh; background-color: #0e1621; justify-content: center; align-items: center; }
+
+        .auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .auth-card { background: #17212b; padding: 25px; border-radius: 12px; width: 90%; max-width: 340px; color: #fff; text-align: center; }
+        .auth-card h2 { margin-bottom: 15px; color: #5288c1; }
+        .auth-card input[type="text"], .auth-card input[type="password"] { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #242f3d; background: #242f3d; color: #fff; border-radius: 8px; outline: none; }
+        .avatar-upload { margin-bottom: 15px; text-align: left; }
+        .avatar-upload label { display: block; font-size: 12px; color: #7f91a4; margin-bottom: 5px; }
+        .auth-btn { width: 100%; padding: 12px; background: #5288c1; border: none; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; }
+
+        .app-container { display: none; width: 100%; max-width: 1200px; height: 100vh; background: #17212b; }
+        .sidebar { width: 300px; border-right: 1px solid #10171e; display: flex; flex-direction: column; background: #17212b; }
+        .user-profile { padding: 12px 15px; background: #242f3d; display: flex; align-items: center; gap: 10px; color: #fff; }
+        .profile-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #5288c1; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; flex-shrink: 0; }
+        .profile-info { flex: 1; overflow: hidden; }
+        .profile-nick { font-weight: bold; font-size: 14px; }
+        .logout-btn { background: transparent; border: none; color: #e53935; cursor: pointer; font-size: 12px; }
+
+        .chat-list-title { padding: 10px; font-size: 12px; color: #7f91a4; font-weight: bold; }
+        .chat-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+        .user-item { display: flex; align-items: center; gap: 10px; padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #10171e; color: #fff; position: relative; }
+        .user-item:hover { background: #202b36; }
+        .unread-badge { background: #e53935; color: white; font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 10px; margin-left: auto; display: none; }
+
+        .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #0e1621; }
+        .chat-header { padding: 12px 15px; background: #17212b; color: #fff; border-bottom: 1px solid #10171e; display: flex; align-items: center; gap: 10px; }
+        
+        .messages-container { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .msg { max-width: 70%; padding: 8px 12px; border-radius: 10px; font-size: 14px; color: #fff; word-break: break-word; }
+        .msg.my { background: #2b5278; align-self: flex-end; }
+        .msg.other { background: #182533; align-self: flex-start; }
+        .msg-sticker { font-size: 40px; background: transparent !important; }
+        .msg-img { max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 5px; }
+        audio { max-width: 220px; height: 35px; }
+
+        .input-bar { padding: 10px; background: #17212b; display: flex; align-items: center; gap: 6px; position: relative; }
+        .input-bar input[type="text"] { flex: 1; padding: 10px; border: none; background: #242f3d; border-radius: 8px; color: #fff; outline: none; }
+        .icon-btn { background: transparent; border: none; font-size: 18px; cursor: pointer; padding: 5px; color: #7f91a4; }
+        .send-btn { background: #5288c1; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        .sticker-box { display: none; position: absolute; bottom: 55px; right: 50px; background: #17212b; border: 1px solid #242f3d; padding: 10px; border-radius: 8px; gap: 8px; z-index: 10; }
+        .sticker-item { font-size: 24px; cursor: pointer; }
+        .empty-chat { flex: 1; display: flex; align-items: center; justify-content: center; color: #7f91a4; }
+    </style>
+</head>
+<body>
+
+<div class="auth-overlay" id="authModal">
+    <div class="auth-card">
+        <h2>Kirish / Ro'yxatdan o'tish</h2>
+        <input type="text" id="regNick" placeholder="Nick (Laqab)">
+        <input type="password" id="regPass" placeholder="Parol">
+        <div class="avatar-upload">
+            <label>Profil rasmi (ixtiyoriy):</label>
+            <input type="file" id="regAvatar" accept="image/*">
+        </div>
+        <button class="auth-btn" onclick="login()">Kirish</button>
+    </div>
+</div>
+
+<div class="app-container" id="appContainer">
+    <div class="sidebar">
+        <div class="user-profile">
+            <img id="myAvatarImg" class="profile-img" src="" style="display:none;">
+            <div id="myAvatarText" class="profile-img"></div>
+            <div class="profile-info">
+                <div class="profile-nick" id="myNickDisplay"></div>
+            </div>
+            <button class="logout-btn" onclick="logout()">Chiqish</button>
+        </div>
+        <div class="chat-list-title">FOYDALANUVCHILAR</div>
+        <div class="chat-list" id="usersList"></div>
+    </div>
+
+    <div class="chat-area">
+        <div class="empty-chat" id="emptyChatText">Gaplashish uchun kontakt tanlang</div>
+        
+        <div id="activeChatWindow" style="display:none; flex-direction:column; height:100%;">
+            <div class="chat-header">
+                <img id="targetAvatarImg" class="profile-img" src="" style="display:none;">
+                <div id="targetAvatarText" class="profile-img"></div>
+                <h3 id="targetNickDisplay">...</h3>
+            </div>
+            
+            <div class="messages-container" id="messagesContainer"></div>
+
+            <div class="sticker-box" id="stickerBox">
+                <span class="sticker-item" onclick="sendSticker('🔥')">🔥</span>
+                <span class="sticker-item" onclick="sendSticker('😎')">😎</span>
+                <span class="sticker-item" onclick="sendSticker('❤️')">❤️</span>
+                <span class="sticker-item" onclick="sendSticker('👍')">👍</span>
+                <span class="sticker-item" onclick="sendSticker('😂')">😂</span>
+            </div>
+
+            <div class="input-bar">
+                <input type="file" id="imageInput" accept="image/*" style="display:none;" onchange="sendImage(this)">
+                <button class="icon-btn" onclick="document.getElementById('imageInput').click()">📷</button>
+                <button class="icon-btn" onclick="toggleStickers()">😊</button>
+                <input type="text" id="messageInput" placeholder="Xabar...">
+                <button class="icon-btn" id="voiceBtn" onclick="toggleVoiceRecording()">🎤</button>
+                <button class="send-btn" onclick="sendMessage()">Yuborish</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<script>
+    // Yangi yuborgan Firebase konfiguratsiyangiz
+    const firebaseConfig = {
+        apiKey: "AIzaSyC2_-rhJnji4llIBl0FnwvnKlQDvkyflRk",
+        authDomain: "telegram-14880.firebaseapp.com",
+        projectId: "telegram-14880",
+        storageBucket: "telegram-14880.firebasestorage.app",
+        messagingSenderId: "711807086000",
+        appId: "1:711807086000:web:d51a91c4a2ccf71febfa75",
+        measurementId: "G-HHH77PS7GC",
+        databaseURL: "https://telegram-14880-default-rtdb.firebaseio.com"
+    };
+
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let currentUser = null;
+    let selectedUser = null;
+    let currentChatRef = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
+    window.onload = function() {
+        const savedUser = localStorage.getItem('tg_full_user');
+        if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+            initUser();
+        }
+    };
+
+    function login() {
+        const nick = document.getElementById('regNick').value.trim();
+        const pass = document.getElementById('regPass').value.trim();
+        const avatarFile = document.getElementById('regAvatar').files[0];
+        
+        if (!nick || !pass) return alert("Nick va parolni kiriting!");
+
+        db.ref("users/" + nick).once("value", (snapshot) => {
+            if (snapshot.exists()) {
+                const userData = snapshot.val();
+                if (userData.pass === pass) {
+                    currentUser = userData;
+                    saveAndInit();
+                } else {
+                    alert("Parol noto'g'ri!");
+                }
+            } else {
+                currentUser = { nick: nick, pass: pass, avatar: "" };
+                if (avatarFile) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        currentUser.avatar = e.target.result;
+                        db.ref("users/" + nick).set(currentUser);
+                        saveAndInit();
+                    };
+                    reader.readAsDataURL(avatarFile);
+                } else {
+                    db.ref("users/" + nick).set(currentUser);
+                    saveAndInit();
+                }
+            }
+        });
+    }
+
+    function saveAndInit() {
+        localStorage.setItem('tg_full_user', JSON.stringify(currentUser));
+        initUser();
+    }
+
+    function initUser() {
+        document.getElementById('authModal').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'flex';
+        document.getElementById('myNickDisplay').innerText = currentUser.nick;
+
+        if (currentUser.avatar) {
+            document.getElementById('myAvatarImg').src = currentUser.avatar;
+            document.getElementById('myAvatarImg').style.display = 'block';
+            document.getElementById('myAvatarText').style.display = 'none';
+        } else {
+            document.getElementById('myAvatarText').innerText = currentUser.nick.charAt(0).toUpperCase();
+        }
+
+        listenUsers();
+    }
+
+    function logout() {
+        localStorage.removeItem('tg_full_user');
+        location.reload();
+    }
+
+    function listenUsers() {
+        db.ref("users").on("value", (snapshot) => {
+            const usersList = document.getElementById('usersList');
+            usersList.innerHTML = "";
+
+            snapshot.forEach((child) => {
+                const user = child.val();
+                if (user.nick !== currentUser.nick) {
+                    const userDiv = document.createElement('div');
+                    userDiv.className = 'user-item';
+                    userDiv.id = `user-item-${user.nick}`;
+                    
+                    let avatarHtml = user.avatar 
+                        ? `<img src="${user.avatar}" class="profile-img">`
+                        : `<div class="profile-img">${user.nick.charAt(0).toUpperCase()}</div>`;
+
+                    userDiv.innerHTML = `${avatarHtml}<div>${user.nick}</div><span class="unread-badge" id="badge-${user.nick}">0</span>`;
+                    userDiv.onclick = () => selectUser(user);
+                    usersList.appendChild(userDiv);
+
+                    listenUnreadMessages(user.nick);
+                }
+            });
+        });
+    }
+
+    function listenUnreadMessages(targetNick) {
+        const chatId = [currentUser.nick, targetNick].sort().join("_");
+        db.ref("private_chats/" + chatId).on("value", (snapshot) => {
+            if (selectedUser && selectedUser.nick === targetNick) return;
+            
+            let count = 0;
+            snapshot.forEach((child) => {
+                const msg = child.val();
+                if (msg.sender !== currentUser.nick && !msg.read) {
+                    count++;
+                }
+            });
+
+            const badge = document.getElementById(`badge-${targetNick}`);
+            if (badge) {
+                if (count > 0) {
+                    badge.innerText = count;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        });
+    }
+
+    function selectUser(user) {
+        selectedUser = user;
+        document.getElementById('emptyChatText').style.display = 'none';
+        document.getElementById('activeChatWindow').style.display = 'flex';
+        document.getElementById('targetNickDisplay').innerText = user.nick;
+
+        const badge = document.getElementById(`badge-${user.nick}`);
+        if (badge) badge.style.display = 'none';
+
+        if (user.avatar) {
+            document.getElementById('targetAvatarImg').src = user.avatar;
+            document.getElementById('targetAvatarImg').style.display = 'block';
+            document.getElementById('targetAvatarText').style.display = 'none';
+        } else {
+            document.getElementById('targetAvatarText').innerText = user.nick.charAt(0).toUpperCase();
+            document.getElementById('targetAvatarText').style.display = 'flex';
+            document.getElementById('targetAvatarImg').style.display = 'none';
+        }
+
+        const chatId = [currentUser.nick, user.nick].sort().join("_");
+        if (currentChatRef) currentChatRef.off();
+        
+        document.getElementById('messagesContainer').innerHTML = '';
+        currentChatRef = db.ref("private_chats/" + chatId);
+        
+        currentChatRef.on("child_added", (snapshot) => {
+            const msg = snapshot.val();
+            if (msg.sender !== currentUser.nick && !msg.read) {
+                db.ref("private_chats/" + chatId + "/" + snapshot.key).update({ read: true });
+            }
+            appendMessage(msg);
+        });
+    }
+
+    function appendMessage(data) {
+        const container = document.getElementById('messagesContainer');
+        const isMyMsg = data.sender === currentUser.nick;
+        const msgDiv = document.createElement('div');
+        
+        if(data.type === 'sticker') {
+            msgDiv.className = `msg ${isMyMsg ? 'my' : 'other'} msg-sticker`;
+            msgDiv.innerText = data.content;
+        } else if(data.type === 'image') {
+            msgDiv.className = `msg ${isMyMsg ? 'my' : 'other'}`;
+            msgDiv.innerHTML = `<img src="${data.content}" class="msg-img">`;
+        } else if(data.type === 'voice') {
+            msgDiv.className = `msg ${isMyMsg ? 'my' : 'other'}`;
+            msgDiv.innerHTML = `<audio controls src="${data.content}"></audio>`;
+        } else {
+            msgDiv.className = `msg ${isMyMsg ? 'my' : 'other'}`;
+            msgDiv.innerText = data.content;
+        }
+
+        container.appendChild(msgDiv);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function sendData(type, content) {
+        if (!selectedUser) return;
+        const chatId = [currentUser.nick, selectedUser.nick].sort().join("_");
+        db.ref("private_chats/" + chatId).push({
+            sender: currentUser.nick,
+            type: type,
+            content: content,
+            read: false,
+            timestamp: Date.now()
+        });
+    }
+
+    function sendMessage() {
+        const input = document.getElementById('messageInput');
+        if (input.value.trim() !== "") {
+            sendData('text', input.value.trim());
+            input.value = "";
+        }
+    }
+
+    function sendSticker(emoji) {
+        sendData('sticker', emoji);
+        document.getElementById('stickerBox').style.display = 'none';
+    }
+
+    function toggleStickers() {
+        const box = document.getElementById('stickerBox');
+        box.style.display = box.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    function sendImage(input) {
+        const file = input.files[0];
+        if (file) {
+            if (file.size > 500000) return alert("Rasm o'lchami juda katta (500KB dan kichik rasm tanlang)!");
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                sendData('image', e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function toggleVoiceRecording() {
+        const btn = document.getElementById('voiceBtn');
+        if (!isRecording) {
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.start();
+                audioChunks = [];
+                isRecording = true;
+                btn.style.color = 'red';
+
+                mediaRecorder.addEventListener("dataavailable", event => { audioChunks.push(event.data); });
+                mediaRecorder.addEventListener("stop", () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                    const reader = new FileReader();
+                    reader.onloadend = () => { sendData('voice', reader.result); };
+                    reader.readAsDataURL(audioBlob);
+                });
+            }).catch(() => alert("Mikrofonga ruxsat berilmadi!"));
+        } else {
+            mediaRecorder.stop();
+            isRecording = false;
+            btn.style.color = '#7f91a4';
+        }
+    }
+
+    document.getElementById('messageInput').addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
+</script>
+</body>
+</html>
